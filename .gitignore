@@ -1,0 +1,43 @@
+# ── Secrets & local config ─────────────────────────────────────────────────
+focusguard-backend/.env
+focusguard-android/local.properties
+
+# ── Lambda build artifacts ──────────────────────────────────────────────────
+focusguard-backend/lambda_build/
+focusguard-backend/focusguard_lambda.zip
+focusguard-backend/update.zip
+focusguard-backend/__pycache__/
+focusguard-backend/**/__pycache__/
+focusguard-backend/**/*.pyc
+focusguard-backend/**/*.pyo
+focusguard-backend/*.hprof
+
+# ── Backend misc ────────────────────────────────────────────────────────────
+focusguard-backend/response.json
+focusguard-backend/test_payload.json
+focusguard-backend/.pytest_cache/
+focusguard-backend/.venv/
+focusguard-backend/venv/
+
+# ── Android build artifacts ─────────────────────────────────────────────────
+focusguard-android/.gradle/
+focusguard-android/build/
+focusguard-android/app/build/
+focusguard-android/**/*.hprof
+focusguard-android/local.properties
+focusguard-android/.idea/
+focusguard-android/**/*.iml
+focusguard-android/.kotlin/
+
+# ── Web ─────────────────────────────────────────────────────────────────────
+focusguard-web/node_modules/
+focusguard-web/dist/
+focusguard-web/public/focusguard.apk
+
+# ── OS & editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/settings.json
+.idea/

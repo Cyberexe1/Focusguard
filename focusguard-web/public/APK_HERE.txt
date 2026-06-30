@@ -1,0 +1,12 @@
+Place your built Android APK in this folder and name it exactly:
+
+    focusguard.apk
+
+The download buttons on the site link to /focusguard.apk
+
+To build the APK:
+  cd ..\focusguard-android
+  gradlew assembleDebug --no-configuration-cache
+  copy app\build\outputs\apk\debug\app-debug.apk ..\focusguard-web\public\focusguard.apk
+
+Or point APK_URL in src/App.jsx to a GitHub Release / S3 link instead.

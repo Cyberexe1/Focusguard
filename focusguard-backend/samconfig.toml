@@ -1,0 +1,16 @@
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "focusguard-prod"
+
+[default.build.parameters]
+use_container = true
+
+[default.deploy.parameters]
+stack_name        = "focusguard-prod"
+s3_prefix         = "focusguard-prod"
+region            = "us-east-1"
+confirm_changeset = false
+capabilities      = "CAPABILITY_IAM"
+disable_rollback  = false

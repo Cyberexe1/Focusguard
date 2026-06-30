@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light theme design tokens -->
+    <color name="background">#FAFAFC</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F4F3FF</color>
+    <color name="surface_container_low">#F7F7FA</color>
+    <color name="primary">#6C63FF</color>
+    <color name="primary_variant">#8A84FF</color>
+    <color name="primary_container">#EEEDFF</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_primary_container">#3730A3</color>
+    <color name="on_background">#1E1B24</color>
+    <color name="on_surface">#1E1B24</color>
+    <color name="on_surface_variant">#6E6B7B</color>
+    <color name="outline">#D4D2E3</color>
+    <color name="outline_variant">#ECEBF5</color>
+    <color name="error">#FF4757</color>
+    <color name="error_container">#FFECEE</color>
+    <color name="warning">#FFA502</color>
+    <color name="warning_container">#FFF3E0</color>
+    <color name="success">#2ED573</color>
+    <color name="success_container">#E8FFF3</color>
+</resources>

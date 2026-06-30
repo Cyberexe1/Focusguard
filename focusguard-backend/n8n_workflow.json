@@ -1,0 +1,179 @@
+{
+  "name": "FocusGuard AI — Voice Accountability Call",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "focusguard-alert",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "focusguard-alert-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate webhook secret\nconst headers = $input.first().json.headers || {};\nconst secret = headers['x-webhook-secret'] || headers['X-Webhook-Secret'] || '';\nconst expectedSecret = 'aegisai-n8n-secret';\n\nif (secret !== expectedSecret) {\n  throw new Error('Unauthorized: invalid webhook secret');\n}\n\n// Extract body — n8n puts JSON body here\nconst body = $input.first().json.body || $input.first().json;\n\nconst phone      = body.phone || body.to || '';\nconst userName   = body.userName || body.user_name || 'there';\nconst taskTitle  = body.taskTitle || body.task_title || 'your task';\nconst taskId     = body.taskId || body.task_id || '';\nconst riskScore  = body.riskScore || body.risk_score || 0;\nconst severity   = body.severity || 'critical';\nconst alertType  = body.alertType || 'Deadline Risk Alert';\n\nconst message = body.message ||\n  `Hello ${userName}. This is FocusGuard AI. ` +\n  `Your task '${taskTitle}' is at ${riskScore} percent risk of being missed. ` +\n  `Would you like me to generate an emergency focus schedule? Say yes or no.`;\n\nreturn [{\n  json: {\n    phone,\n    userName,\n    taskTitle,\n    taskId,\n    riskScore,\n    severity,\n    alertType,\n    message,\n    timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })\n  }\n}];"
+      },
+      "id": "prepare-payload",
+      "name": "Prepare Call Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "phone-check",
+              "leftValue": "={{ $json.phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-phone",
+      "name": "Phone Number Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.FOCUSGUARD_BACKEND_URL.replace(/\\/+$/, '') }}/api/alerts/n8n-call",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "aegisai-n8n-secret"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: $json.phone, alertType: $json.alertType, message: $json.message, severity: $json.severity, taskId: $json.taskId, userName: $json.userName }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "trigger-voice-call",
+      "name": "Trigger Voice Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [960, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, callSid: $json.callSid, callId: $json.callId, message: 'Voice accountability call initiated', taskId: $('Prepare Call Payload').first().json.taskId, riskScore: $('Prepare Call Payload').first().json.riskScore }) }}"
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: 'No phone number provided', message: 'Cannot trigger call without a phone number' }) }}"
+      },
+      "id": "respond-no-phone",
+      "name": "Respond No Phone",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 420]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare Call Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Call Payload": {
+      "main": [
+        [
+          {
+            "node": "Phone Number Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phone Number Exists?": {
+      "main": [
+        [
+          {
+            "node": "Trigger Voice Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond No Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Voice Call": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "tags": [
+    "focusguard",
+    "voice-call",
+    "twilio",
+    "ai",
+    "phase3"
+  ],
+  "meta": {
+    "description": "FocusGuard AI — Receives risk alerts from FastAPI backend, validates payload, and triggers Twilio voice accountability call via /api/alerts/n8n-call. User's spoken response is handled by Twilio webhooks back on the FastAPI backend."
+  }
+}

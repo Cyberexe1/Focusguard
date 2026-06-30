@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: FocusGuard AI Backend — Serverless deployment on AWS Lambda + API Gateway
+
+Globals:
+  Function:
+    Timeout: 60          # 60s for Bedrock calls (Nova Lite can be slow)
+    MemorySize: 512
+    Runtime: python3.11
+    Environment:
+      Variables:
+        AWS_REGION_NAME: !Ref AWS::Region
+        DYNAMODB_USERS_TABLE: focusguard_users
+        DYNAMODB_TASKS_TABLE: focusguard_tasks
+        BEDROCK_MODEL_ID: amazon.nova-lite-v1:0
+        JWT_ALGORITHM: HS256
+        JWT_EXPIRE_DAYS: "7"
+        # Secrets below are injected from AWS Secrets Manager at deploy time
+        JWT_SECRET: !Sub "{{resolve:secretsmanager:focusguard/app:SecretString:jwt_secret}}"
+        TWILIO_ACCOUNT_SID: !Sub "{{resolve:secretsmanager:focusguard/twilio:SecretString:account_sid}}"
+        TWILIO_AUTH_TOKEN: !Sub "{{resolve:secretsmanager:focusguard/twilio:SecretString:auth_token}}"
+        TWILIO_PHONE_NUMBER: !Sub "{{resolve:secretsmanager:focusguard/twilio:SecretString:phone_number}}"
+        DEFAULT_ALERT_PHONE: !Sub "{{resolve:secretsmanager:focusguard/twilio:SecretString:default_alert_phone}}"
+        N8N_WEBHOOK_URL: !Sub "{{resolve:secretsmanager:focusguard/n8n:SecretString:webhook_url}}"
+        N8N_WEBHOOK_SECRET: !Sub "{{resolve:secretsmanager:focusguard/n8n:SecretString:webhook_secret}}"
+
+Resources:
+
+  FocusGuardFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: focusguard-api
+      CodeUri: .
+      Handler: lambda_handler.handler
+      Description: FocusGuard AI — FastAPI backend (Phase 1 + 2 + 3)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: focusguard_users
+        - DynamoDBCrudPolicy:
+            TableName: focusguard_tasks
+        - DynamoDBCrudPolicy:
+            TableName: focusguard_schedules
+        - DynamoDBCrudPolicy:
+            TableName: focusguard_risk_history
+        - DynamoDBCrudPolicy:
+            TableName: focusguard_sprints
+        - DynamoDBCrudPolicy:
+            TableName: focusguard_habits
+        - DynamoDBCrudPolicy:
+            TableName: focusguard_calls
+        - DynamoDBCrudPolicy:
+            TableName: focusguard_calendar_events
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:Converse
+              Resource: "*"
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource:
+                - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:focusguard/*"
+      Events:
+        ApiRoot:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+            RestApiId: !Ref FocusGuardApi
+        ApiProxy:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            RestApiId: !Ref FocusGuardApi
+
+  FocusGuardApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: focusguard-api-gateway
+      StageName: prod
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+Outputs:
+  ApiUrl:
+    Description: "FocusGuard API Gateway URL — use this in Android app and n8n"
+    Value: !Sub "https://${FocusGuardApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Export:
+      Name: FocusGuardApiUrl
