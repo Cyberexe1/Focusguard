@@ -6,7 +6,7 @@
 🌐 **Live Demo:** https://virtualpromptwars-eb2fd.web.app
 📦 **Download APK:** https://storage.googleapis.com/focusguard-downloads/focusguard.apk
 💻 **GitHub:** https://github.com/Cyberexe1/Focusguard
-🔗 **Backend API:** https://6f0tbzcsr6.execute-api.us-east-1.amazonaws.com/health
+🔗 **Backend API:** https://6f0tbzcsr6.focusguard-api-1077211909058.us-central1.run.app/health
 
 ---
 
