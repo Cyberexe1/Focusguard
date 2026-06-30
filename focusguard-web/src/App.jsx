@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 // ── Where the APK lives. Drop your built APK at focusguard-web/public/focusguard.apk
 //    or replace this with a direct S3 / GitHub Releases download link.
-const APK_URL = '/focusguard.apk'
+const APK_URL = 'https://storage.googleapis.com/focusguard-downloads/focusguard.apk'
 const APP_VERSION = 'v3.0.0'
 const APK_SIZE = '18 MB'
 
