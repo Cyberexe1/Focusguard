@@ -224,3 +224,97 @@ class CheckInAlarmReceiver : BroadcastReceiver() {
         CheckInNotifier.show(context)
     }
 }
+
+// ── 9 PM deadline alert — fires if user hasn't checked in by evening ──────────
+
+object EveningAlertNotifier {
+
+    private const val NOTIF_ID     = 9002
+    private const val CHANNEL_ID   = "focusguard_evening"
+    private const val REQ_CODE     = 9002
+
+    /** Schedule the 9 PM alert. Called on app open and after each fire. */
+    fun schedule(context: Context) {
+        ensureChannel(context)
+        val cal = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 21)   // 9 PM
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(java.util.Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+        val intent = Intent(context, EveningAlarmReceiver::class.java)
+        val pending = PendingIntent.getBroadcast(
+            context, REQ_CODE, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val mgr = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        try {
+            val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) mgr.canScheduleExactAlarms() else true
+            if (canExact) mgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pending)
+            else mgr.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pending)
+        } catch (e: SecurityException) {
+            mgr.set(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pending)
+        }
+    }
+
+    fun cancel(context: Context) {
+        val mgr = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pending = PendingIntent.getBroadcast(
+            context, REQ_CODE, Intent(context, EveningAlarmReceiver::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        mgr.cancel(pending)
+    }
+
+    /** Show the "you haven't updated your tasks" notification. */
+    fun show(context: Context) {
+        ensureChannel(context)
+        val openIntent = PendingIntent.getActivity(
+            context, NOTIF_ID,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("⚠️ Task update missing!")
+            .setContentText("You haven't updated your tasks today. Don't let deadlines slip — open FocusGuard now.")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                "You haven't updated your tasks today. Your deadlines are watching. " +
+                "Open FocusGuard, mark your progress, and stay on track. If you don't respond, we'll call you."
+            ))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setAutoCancel(true)
+            .setContentIntent(openIntent)
+            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .build()
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID, notification)
+        // Reschedule for tomorrow
+        schedule(context)
+    }
+
+    private fun ensureChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
+                mgr.createNotificationChannel(NotificationChannel(
+                    CHANNEL_ID, "Evening Task Alert", NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Alerts you at 9 PM if you haven't updated your tasks today."
+                    enableVibration(true)
+                })
+            }
+        }
+    }
+}
+
+class EveningAlarmReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        // Launch a coroutine-capable worker to check check-in status before alerting
+        EveningCheckWorker.enqueue(context)
+    }
+}

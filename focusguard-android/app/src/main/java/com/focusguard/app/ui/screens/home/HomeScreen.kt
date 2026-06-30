@@ -320,11 +320,36 @@ fun TaskCard(
                 ) {
                     FgText(task.category, fontSize = 10.sp, color = colors.primary, fontWeight = FontWeight.Medium)
                 }
+                // Streak badge
+                if (task.checkinStreak > 0) {
+                    Box(
+                        modifier = Modifier
+                            .background(colors.warningContainer, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                    ) {
+                        FgText("🔥 ${task.checkinStreak}d", fontSize = 10.sp, color = colors.warning, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
             FgText(task.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(Icons.Filled.Schedule, null, tint = colors.onSurfaceMuted, modifier = Modifier.size(12.dp))
                 FgText(task.deadline.take(16), fontSize = 11.sp, color = colors.onSurfaceMuted)
+            }
+            // Sub-task mini progress bar
+            if (task.subTasks.isNotEmpty()) {
+                val done = task.subTasks.count { it.done }
+                val total = task.subTasks.size
+                val pct = done.toFloat() / total
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    LinearProgressIndicator(
+                        progress = { pct },
+                        modifier = Modifier.weight(1f).height(4.dp),
+                        color = if (pct >= 1f) colors.success else colors.primary,
+                        trackColor = colors.primaryContainer,
+                    )
+                    FgText("$done/$total", fontSize = 10.sp, color = colors.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                }
             }
         }
         Icon(Icons.Filled.ChevronRight, null, tint = colors.outline, modifier = Modifier.size(18.dp).padding(end = 2.dp))
