@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional
+from app.models import UserBlock, SaveBlocksRequest
 from app.services.auth_service import get_current_user_id
 from app.services import dynamodb_service as db
 from app.services import schedule_service
@@ -18,18 +19,6 @@ class GenerateScheduleRequest(BaseModel):
 
 class EmergencyPlanRequest(BaseModel):
     critical_task_id: str
-
-
-class UserBlock(BaseModel):
-    name: str
-    startMin: int
-    endMin: Optional[int] = None
-    repeat_days: int = 1
-
-
-class SaveBlocksRequest(BaseModel):
-    date: str
-    blocks: list[UserBlock]
 
 
 @router.post("/generate")

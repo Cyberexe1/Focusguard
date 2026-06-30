@@ -107,6 +107,7 @@ async def daily_checkin(
         db.update_task(task["userId"], task["taskId"], {
             "lastCheckin": today,
             "checkinStreak": streak,
+            "checkinNote": body.note,       # persist the note
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         })
         updated_count += 1

@@ -21,7 +21,7 @@ Flow:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.services.auth_service import get_current_user_id
 from app.services import dynamodb_service as db
 from app.services import call_service, schedule_service
@@ -89,37 +89,47 @@ async def trigger_call(
 class N8nCallRequest(BaseModel):
     phone: str
     alertType: str = "Deadline Risk Alert"
-    message: str
+    message: str = Field(..., min_length=1, max_length=2000)
     severity: str = "critical"
     taskId: str = ""
     userName: str = "User"
 
 
 @router.post("/api/alerts/n8n-call")
-async def n8n_call_handler(body: N8nCallRequest):
+async def n8n_call_handler(request: Request, body: N8nCallRequest):
     """
     Called by n8n's 'Trigger Voice Call' HTTP Request node.
-    Places the Twilio outbound call and returns callSid.
-
-    This matches exactly what your n8n node expects:
-      POST http://localhost:8000/api/alerts/n8n-call
-      { phone, alertType, message, severity }
+    Requires X-Webhook-Secret header to match N8N_WEBHOOK_SECRET env var.
     """
-    # Validate webhook secret if provided
-    # (n8n sends it as header X-Webhook-Secret)
+    # ── Validate webhook secret ───────────────────────────────────────────
+    secret = request.headers.get("X-Webhook-Secret", "")
+    if not settings.n8n_webhook_secret or secret != settings.n8n_webhook_secret:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing webhook secret.",
+        )
+
+    # ── Validate phone number ─────────────────────────────────────────────
+    import re
+    if not re.fullmatch(r"\+[1-9]\d{6,14}", body.phone):
+        raise HTTPException(status_code=400, detail="Invalid phone number format.")
 
     task_id = body.taskId or "unknown"
 
-    # Look up userId from task if we have a real task_id
+    # Resolve userId from call records or task lookup
     user_id = "system"
     if task_id != "unknown":
         try:
-            # Scan for task to get userId (small table so scan is OK for hackathon)
-            import boto3
-            from app.services.dynamodb_service import get_dynamodb
-            ddb = get_dynamodb()
-            # We can't query without userId, so we store a minimal call record
-            pass
+            from app.services.dynamodb_service import get_dynamodb, get_tasks_table
+            # Scan focusguard_calls for an existing record with this taskId
+            table = get_dynamodb().Table("focusguard_calls")
+            resp = table.scan(
+                FilterExpression=boto3.dynamodb.conditions.Attr("taskId").eq(task_id),
+                Limit=1,
+            )
+            items = resp.get("Items", [])
+            if items:
+                user_id = items[0].get("userId", "system")
         except Exception:
             pass
 
@@ -153,6 +163,15 @@ async def handle_twilio_response(
 ):
     """Twilio sends STT result here after user speaks."""
     from twilio.twiml.voice_response import VoiceResponse
+    from twilio.request_validator import RequestValidator
+
+    # ── Validate Twilio signature ─────────────────────────────────────────
+    validator = RequestValidator(settings.twilio_auth_token)
+    signature = request.headers.get("X-Twilio-Signature", "")
+    url = str(request.url)
+    form_data = dict(await request.form())
+    if settings.twilio_auth_token and not validator.validate(url, form_data, signature):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Twilio signature.")
 
     intent = call_service.parse_user_intent(SpeechResult, task_id)
     call_record = call_service.get_call_by_twilio_sid(CallSid) or {}
@@ -206,10 +225,21 @@ async def handle_twilio_response(
 @router.post("/webhooks/twilio/status/{task_id}")
 async def twilio_status_update(
     task_id: str,
+    request: Request,
     CallSid: str = Form(default=""),
     CallStatus: str = Form(default=""),
 ):
     """Twilio sends call lifecycle updates here (ringing, answered, completed, failed)."""
+    from twilio.request_validator import RequestValidator
+
+    # ── Validate Twilio signature ─────────────────────────────────────────
+    validator = RequestValidator(settings.twilio_auth_token)
+    signature = request.headers.get("X-Twilio-Signature", "")
+    url = str(request.url)
+    form_data = dict(await request.form())
+    if settings.twilio_auth_token and not validator.validate(url, form_data, signature):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Twilio signature.")
+
     call_record = call_service.get_call_by_twilio_sid(CallSid)
     if call_record:
         call_service.update_call(

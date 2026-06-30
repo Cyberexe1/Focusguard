@@ -276,6 +276,9 @@ interface FocusGuardApiService {
     @GET("sprints")
     suspend fun getSprints(@Header("Authorization") token: String): Response<List<SprintDto>>
 
+    @GET("sprints/{id}")
+    suspend fun getSprint(@Header("Authorization") token: String, @Path("id") sprintId: String): Response<SprintDto>
+
     // ── Habits (Phase 2) ──────────────────────────────────────────────────
     @GET("habits/insights")
     suspend fun getHabitInsights(@Header("Authorization") token: String): Response<HabitInsightsDto>
@@ -286,4 +289,18 @@ interface FocusGuardApiService {
 
     @GET("dashboard/weekly")
     suspend fun getWeeklyMetrics(@Header("Authorization") token: String): Response<WeeklyMetricsDto>
+
+    // ── Calls (Phase 3) ───────────────────────────────────────────────────
+    @POST("calls/trigger/{taskId}")
+    suspend fun triggerCall(@Header("Authorization") token: String, @Path("taskId") taskId: String): Response<Map<String, Any>>
+
+    @GET("calls/history")
+    suspend fun getCallHistory(@Header("Authorization") token: String): Response<List<Map<String, Any>>>
+
+    // ── Planning (Phase 3) ────────────────────────────────────────────────
+    @POST("planning/week")
+    suspend fun planWeek(@Header("Authorization") token: String): Response<Map<String, Any>>
+
+    @GET("planning/conflicts")
+    suspend fun getConflicts(@Header("Authorization") token: String): Response<Map<String, Any>>
 }

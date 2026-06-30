@@ -8,14 +8,13 @@ router = APIRouter(prefix="/tasks", tags=["risk"])
 
 @router.get("/risk/all")
 async def get_all_risk_scores(user_id: str = Depends(get_current_user_id)):
-    """Compute and return risk scores for all active tasks."""
+    """Compute and return risk scores for all active tasks. Read-only — no DB writes."""
     all_tasks = db.get_tasks_for_user(user_id)
     active_tasks = [t for t in all_tasks if t.get("status") != "completed"]
 
     results = []
     for task in active_tasks:
         score_data = compute_risk_score(task, all_tasks)
-        save_risk_score(user_id, task["taskId"], score_data)
         results.append({
             "taskId": task["taskId"],
             "title": task["title"],
@@ -23,7 +22,6 @@ async def get_all_risk_scores(user_id: str = Depends(get_current_user_id)):
             **score_data,
         })
 
-    # Sort by risk score descending
     results.sort(key=lambda r: r["risk_score"], reverse=True)
     return results
 
@@ -39,6 +37,7 @@ async def get_task_risk(
 
     all_tasks = db.get_tasks_for_user(user_id)
     score_data = compute_risk_score(task, all_tasks)
+    # Only persist on explicit single-task risk check, not bulk poll
     save_risk_score(user_id, task_id, score_data)
 
     return {
