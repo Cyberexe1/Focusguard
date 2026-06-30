@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
@@ -22,6 +23,7 @@ fun FgText(
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
     textAlign: TextAlign? = null,
+    textDecoration: TextDecoration? = null,
 ) {
     Text(
         text = text,
@@ -33,5 +35,6 @@ fun FgText(
         maxLines = maxLines,
         overflow = overflow,
         textAlign = textAlign,
+        textDecoration = textDecoration,
     )
 }

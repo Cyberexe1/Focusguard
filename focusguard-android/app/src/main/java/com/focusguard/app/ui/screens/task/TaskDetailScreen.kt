@@ -163,7 +163,9 @@ private fun DetailContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 90.dp),
+                .padding(top = 4.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // ── Hero card ─────────────────────────────────────────────────
@@ -202,7 +204,7 @@ private fun DetailContent(
                     InfoItem(Icons.Filled.CalendarMonth, "Deadline", task.deadline.take(10))
                     InfoItem(Icons.Filled.HourglassEmpty, "Effort", "${task.effortHours}h remaining")
                     if (task.checkinStreak > 0) {
-                        InfoItem(Icons.Filled.LocalFire, "Streak", "${task.checkinStreak}d 🔥")
+                    InfoItem(Icons.Filled.Whatshot, "Streak", "${task.checkinStreak}d 🔥")
                     }
                 }
             }
@@ -281,6 +283,8 @@ private fun DetailContent(
                     FgText("Generate Recovery Plan", color = colors.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
         }
 
         // ── Sticky complete button ────────────────────────────────────────

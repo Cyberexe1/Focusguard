@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.focusguard.app.domain.model.PriorityLevel
 import com.focusguard.app.domain.model.Task
+import com.focusguard.app.domain.model.TaskStatus
 import com.focusguard.app.domain.model.priorityLevel
 import com.focusguard.app.ui.components.BottomNavBar
 import com.focusguard.app.ui.components.FgText
@@ -123,7 +125,7 @@ fun HomeScreen(
                         FgGradients.errorClay,
                         colors.errorContainer,
                         Color(0xFFEF4444).copy(0.15f),
-                        "${uiState.tasks.count { it.priorityScore >= 80 }}",
+                        "${uiState.tasks.count { it.priorityScore >= 80 && it.status != TaskStatus.completed }}",
                         "At Risk",
                     )
                     StatCard(
@@ -139,11 +141,11 @@ fun HomeScreen(
                 Spacer(Modifier.height(24.dp))
             }
 
-            // ── Countdown carousel ────────────────────────────────────────
-            if (uiState.tasks.isNotEmpty()) {
+            // ── Countdown carousel (active tasks only) ───────────────────
+            if (uiState.tasks.any { it.status != TaskStatus.completed }) {
                 item {
                     DeadlineCountdownCarousel(
-                        tasks = uiState.tasks,
+                        tasks = uiState.tasks.filter { it.status != TaskStatus.completed },
                         modifier = Modifier.padding(horizontal = 20.dp),
                     )
                     Spacer(Modifier.height(24.dp))
@@ -254,20 +256,20 @@ private fun StatCard(
     val colors = FocusGuardTheme.colors
     Column(
         modifier = modifier
-            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = shadowColor)
-            .background(colors.surface, RoundedCornerShape(18.dp))
-            .padding(14.dp),
+            .shadow(8.dp, RoundedCornerShape(16.dp), ambientColor = shadowColor)
+            .background(colors.surface, RoundedCornerShape(16.dp))
+            .padding(horizontal = 10.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Box(
-            modifier = Modifier.size(36.dp).background(gradient, RoundedCornerShape(10.dp)),
+            modifier = Modifier.size(28.dp).background(gradient, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Icon(icon, null, tint = Color.White, modifier = Modifier.size(14.dp))
         }
-        FgText(value, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = colors.onBackground)
-        FgText(label, fontSize = 10.sp, color = colors.onSurfaceVariant, fontWeight = FontWeight.Medium)
+        FgText(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = colors.onBackground)
+        FgText(label, fontSize = 9.sp, color = colors.onSurfaceVariant, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -278,7 +280,11 @@ fun TaskCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = FocusGuardTheme.colors
-    val (accentGradient, accentColor, accentBg) = when (task.priorityLevel()) {
+    val isCompleted = task.status == TaskStatus.completed
+
+    val (accentGradient, accentColor, accentBg) = if (isCompleted) {
+        Triple(FgGradients.successClay, colors.success, colors.successContainer)
+    } else when (task.priorityLevel()) {
         PriorityLevel.HIGH   -> Triple(FgGradients.errorClay,   Color(0xFFEF4444), Color(0xFFFEE2E2))
         PriorityLevel.MEDIUM -> Triple(FgGradients.warningClay, Color(0xFFF59E0B), Color(0xFFFEF3C7))
         PriorityLevel.LOW    -> Triple(FgGradients.successClay, Color(0xFF10B981), Color(0xFFD1FAE5))
@@ -287,7 +293,8 @@ fun TaskCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = colors.shadowCard)
+            .alpha(if (isCompleted) 0.55f else 1f)
+            .shadow(if (isCompleted) 2.dp else 6.dp, RoundedCornerShape(18.dp), ambientColor = colors.shadowCard)
             .background(colors.surface, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
@@ -296,63 +303,78 @@ fun TaskCard(
         Box(
             modifier = Modifier
                 .width(5.dp)
-                .height(76.dp)
+                .height(if (isCompleted) 56.dp else 76.dp)
                 .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp))
                 .background(accentGradient),
         )
         Spacer(Modifier.width(14.dp))
-        Column(
-            modifier = Modifier.weight(1f).padding(vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+
+        if (isCompleted) {
+            // Compact completed row
+            Row(
+                modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.CheckCircle, null, tint = colors.success, modifier = Modifier.size(16.dp))
+                FgText(
+                    task.title,
+                    fontSize = 14.sp,
+                    color = colors.onSurfaceMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough,
+                    modifier = Modifier.weight(1f),
+                )
                 Box(
                     modifier = Modifier
-                        .background(accentBg, RoundedCornerShape(6.dp))
+                        .background(colors.successContainer, RoundedCornerShape(6.dp))
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                 ) {
-                    FgText("${task.priorityScore}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = accentColor)
+                    FgText("Done ✓", fontSize = 10.sp, color = colors.success, fontWeight = FontWeight.Bold)
                 }
-                Box(
-                    modifier = Modifier
-                        .background(colors.primaryContainer, RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                ) {
-                    FgText(task.category, fontSize = 10.sp, color = colors.primary, fontWeight = FontWeight.Medium)
+            }
+        } else {
+            Column(
+                modifier = Modifier.weight(1f).padding(vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.background(accentBg, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp)) {
+                        FgText("${task.priorityScore}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = accentColor)
+                    }
+                    Box(modifier = Modifier.background(colors.primaryContainer, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp)) {
+                        FgText(task.category, fontSize = 10.sp, color = colors.primary, fontWeight = FontWeight.Medium)
+                    }
+                    if (task.checkinStreak > 0) {
+                        Box(modifier = Modifier.background(colors.warningContainer, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 3.dp)) {
+                            FgText("🔥 ${task.checkinStreak}d", fontSize = 10.sp, color = colors.warning, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
-                // Streak badge
-                if (task.checkinStreak > 0) {
-                    Box(
-                        modifier = Modifier
-                            .background(colors.warningContainer, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 3.dp),
-                    ) {
-                        FgText("🔥 ${task.checkinStreak}d", fontSize = 10.sp, color = colors.warning, fontWeight = FontWeight.Bold)
+                FgText(task.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Filled.Schedule, null, tint = colors.onSurfaceMuted, modifier = Modifier.size(12.dp))
+                    FgText(task.deadline.take(16), fontSize = 11.sp, color = colors.onSurfaceMuted)
+                }
+                if (task.subTasks.isNotEmpty()) {
+                    val done = task.subTasks.count { it.done }
+                    val total = task.subTasks.size
+                    val pct = done.toFloat() / total
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LinearProgressIndicator(
+                            progress = { pct },
+                            modifier = Modifier.weight(1f).height(4.dp),
+                            color = if (pct >= 1f) colors.success else colors.primary,
+                            trackColor = colors.primaryContainer,
+                        )
+                        FgText("$done/$total", fontSize = 10.sp, color = colors.onSurfaceVariant, fontWeight = FontWeight.Medium)
                     }
                 }
             }
-            FgText(task.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Icon(Icons.Filled.Schedule, null, tint = colors.onSurfaceMuted, modifier = Modifier.size(12.dp))
-                FgText(task.deadline.take(16), fontSize = 11.sp, color = colors.onSurfaceMuted)
-            }
-            // Sub-task mini progress bar
-            if (task.subTasks.isNotEmpty()) {
-                val done = task.subTasks.count { it.done }
-                val total = task.subTasks.size
-                val pct = done.toFloat() / total
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    LinearProgressIndicator(
-                        progress = { pct },
-                        modifier = Modifier.weight(1f).height(4.dp),
-                        color = if (pct >= 1f) colors.success else colors.primary,
-                        trackColor = colors.primaryContainer,
-                    )
-                    FgText("$done/$total", fontSize = 10.sp, color = colors.onSurfaceVariant, fontWeight = FontWeight.Medium)
-                }
-            }
         }
-        Icon(Icons.Filled.ChevronRight, null, tint = colors.outline, modifier = Modifier.size(18.dp).padding(end = 2.dp))
+        Icon(Icons.Filled.ChevronRight, null, tint = colors.outline.copy(if (isCompleted) 0.4f else 1f),
+            modifier = Modifier.size(18.dp).padding(end = 2.dp))
         Spacer(Modifier.width(12.dp))
     }
 }

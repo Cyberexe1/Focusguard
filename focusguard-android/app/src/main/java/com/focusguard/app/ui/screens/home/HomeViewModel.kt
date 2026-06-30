@@ -6,6 +6,7 @@ import com.focusguard.app.data.local.SessionDataStore
 import com.focusguard.app.data.repository.TaskRepository
 import com.focusguard.app.data.repository.TaskResult
 import com.focusguard.app.domain.model.Task
+import com.focusguard.app.domain.model.TaskStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,7 +49,11 @@ class HomeViewModel @Inject constructor(
                 is TaskResult.Success -> _uiState.update {
                     it.copy(
                         isLoading = false,
-                        tasks = result.data.sortedByDescending { t -> t.priorityScore },
+                        tasks = result.data.sortedWith(
+                            // Active tasks first (by priority), completed ones pushed to bottom
+                            compareBy<Task> { it.status == TaskStatus.completed }
+                                .thenByDescending { it.priorityScore }
+                        ),
                     )
                 }
                 is TaskResult.Error -> _uiState.update {
